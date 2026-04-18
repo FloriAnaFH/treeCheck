@@ -1,0 +1,10 @@
+build/
+./.idea
+.DS_Store
+
+*.o
+*.out
+
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
