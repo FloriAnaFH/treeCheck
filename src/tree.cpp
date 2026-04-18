@@ -1,62 +1,120 @@
-#include "tree.h"
+#include "../include/tree.h"
+#include "../include/node.h"
 #include <iostream>
+#include <fstream>
+#include <stdexcept>
+#include <string_view>
+#include <charconv>
 
-Node::Node(int key) : key(key), left(nullptr), right(nullptr) {
-}
-
-Tree::Tree() : root(nullptr) {
-}
-
-void Tree::insert(int key) {
-    root = insert(root, key);
-}
-
-void Tree::printBalance(Node *node, bool &avl) {
-    if (node == nullptr)
-        return;
-
-    printBalance(node->right, avl);
-    printBalance(node->left, avl);
-
-    int bf = balanceFactor(node);
-    std::cout << "bal(" << node->key << ") = " << bf;
-    if (bf > 1 || bf < -1) {
-        std::cout << " (AVL violation!)";
-        avl = false;
-    }
-    std::cout << std::endl;
-}
+Node::Node ( int key ) : key_ ( key ), left ( nullptr ), right ( nullptr ) {}
 
 
-void Tree::printBalance() const {
+/* public functions */
+
+bool Tree::insert ( int key ) { return insert_ ( root, key ); }
+
+int Tree::printBalance ()  {
     bool avl = true;
-    printBalance(root, avl);
-    if (avl)
-        std::cout << "AVL: yes" << std::endl;
-    else
-        std::cout << "AVL: no" << std::endl;
+    ;
+    return printBalance_ ( root.get() );
 }
 
-void Tree::printStats() {
-    if (root == nullptr)
-        return;
-    int count = 0, sum = 0;
-    getStats(root, count, sum);
-    double avg = (double) sum / count;
-    std::cout << "min: " << getMin(root)
-            << ", max: " << getMax(root)
-            << ", avg: " << avg << std::endl;
+static Tree fromFile ( std::filesystem::path& path ) {
+    Tree tree;
+
+    std::ifstream input ( path );
+    if ( !input ) {
+        throw std::runtime_error ( "Can't open file: " + path.string() );
+    }
+
+    std::string line;
+    std::size_t lineNr = 0;
+
+    while ( std::getline ( input, line )) {
+        ++lineNr;
+
+    }
+    return tree;
 }
 
-Node *Tree::insert(Node *node, int key) {
-    if (node == nullptr)
-        return new Node(key);
-    if (key < node->key)
-        node->left = insert(node->left, key);
-    else if (key > node->key)
-        node->right = insert(node->right, key);
-    return node;
+
+/* private functions */
+
+bool Tree::insert_ ( std::unique_ptr<Node> &node, int key ) {
+    /* insert a key into the search tree - check for and ignore duplicate keys. Complexity: avg: O(log n), worst: O(n)*/
+
+    if ( !node ) {
+        node = std::make_unique<Node> ( key );
+        ++size;
+        return true;
+    }
+    if ( key < node->key_ ) {
+        return insert_ ( node->left, key );
+    }
+    if ( key > node->key_ ) {
+        return insert_ ( node->right, key );
+    }
+    return false;  // key already exists
 }
+
+static std::string_view trim ( std::string_view sv ) {
+    /* remove whitespace from both ends */
+    while ( !sv.empty () && std::isspace ( static_cast <unsigned char> ( sv.front() ))) {
+        sv.remove_suffix ( 1 );
+    }
+
+    while ( !sv.empty () && std::isspace ( static_cast <unsigned char> ( sv.back () ) )) {
+        sv.remove_suffix ( 1 );
+    }
+    return sv;
+}
+
+static int parseInt ( std::string_view sv, const std::filesystem::path& path, std::size_t lineNr ) {
+    /* tries to parse an integer - throws an error if parsing produces an error or not all characters were read */
+    int value{};
+    const char* begin = sv.data();
+    const char* end = begin + sv.size ();
+    const auto [ ptr, ec ] = std::from_chars ( begin, end, value );
+
+    if ( ec != std::errc{} || ptr != end ) {
+        std::ostringstream msg;
+        msg << "Invalid integer in " << path.string () << " at line " << lineNr << " : '" << sv << "'";
+        throw std::runtime_error( msg.str () );
+    }
+
+    return value;
+}
+
+int Tree::printBalance_ ( const Node *node ) {
+    /* compute subtree height and AVL information in one pass to avoid recomputation of subtree heights */
+    if ( !node )
+        return 0;
+
+    const int rightHeight = printBalance_ ( node->right.get() );
+    const int leftHeight = printBalance_ ( node->left.get() );
+    const int bf = rightHeight - leftHeight;
+
+    std::cout << "bal(" << node->key_ << ") = " << bf;
+    if ( bf > 1 || bf < -1 ) {
+        std::cout << " (AVL violation)";
+        setAVL ( false );
+    }
+    std::cout << "\n";
+
+    return std::max ( leftHeight, rightHeight ) + 1;
+}
+
+int Tree::height ( std::unique_ptr<Node> &node ) {
+    if ( !node )
+        return -1;
+
+    int leftHeight = height ( node->left );
+    int rightHeight = height ( node->right );
+
+    return ( leftHeight > rightHeight ? leftHeight : rightHeight ) + 1;
+}
+
+int Tree::balanceFactor ( std::unique_ptr<Node> &node ) { return height ( node->right ) - height ( node->left ); }
 
 /* insert für AVL Baum mit rotationen.
  *
@@ -86,78 +144,3 @@ Node *Tree::insert(Node *node, int key){
 
     return node;
 }*/
-bool Tree::isAVL(Node *node) {
-    if (node == nullptr)
-        return true;
-
-    int bf = balanceFactor(node);
-    if (bf > 1 || bf < -1)
-        return false;
-
-    return isAVL(node->left) && isAVL(node->right);
-}
-
-bool Tree::isAVL() const {
-    return isAVL(root);
-}
-
-int Tree::height(Node *node) {
-    if (node == nullptr)
-        return -1;
-
-    int leftHeight = height(node->left);
-    int rightHeight = height(node->right);
-
-    return (leftHeight > rightHeight ? leftHeight : rightHeight) + 1;
-}
-
-
-int Tree::balanceFactor(Node *node) {
-    return height(node->right) - height(node->left);
-}
-
-Node *Tree::rotateLeft(Node *node) {
-    Node *newRoot = node->right;
-    node->right = newRoot->left;
-    newRoot->left = node;
-    return newRoot;
-}
-
-Node *Tree::rotateRight(Node *node) {
-    Node *newRoot = node->left;
-    node->left = newRoot->right;
-    newRoot->right = node;
-    return newRoot;
-}
-
-
-Node *Tree::rotateLeftRight(Node *node) {
-    node->left = rotateLeft(node->left);
-    return rotateRight(node);
-}
-
-Node *Tree::rotateRightLeft(Node *node) {
-    node->right = rotateRight(node->right);
-    return rotateLeft(node);
-}
-
-int Tree::getMin(Node *node) {
-    if (node->left == nullptr)
-        return node->key;
-    return getMin(node->left);
-}
-
-int Tree::getMax(Node *node) {
-    if (node->right == nullptr)
-        return node->key;
-    return getMax(node->right);
-}
-
-void Tree::getStats(Node *node, int &count, int &sum) {
-    if (node == nullptr)
-        return;
-    count++;
-    sum += node->key;
-    getStats(node->left, count, sum);
-    getStats(node->right, count, sum);
-}

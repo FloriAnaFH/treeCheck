@@ -1,47 +1,37 @@
-#ifndef TREE_H
-#define TREE_H
+#pragma once
 
-class Node {
-public:
-    int key;
-    Node *left;
-    Node *right;
-
-    Node(int key);
-
-};
+#include "node.h"
+#include <memory>
+#include <filesystem>
 
 
 class Tree {
-public:
-    Tree();
-    void insert(int key);
-    static void printBalance(Node *node, bool &avl);
-    void printBalance() const;
-    void printStats();
-    bool isAVL() const;
+  public:
 
-private:
-    Node *root;
+    bool insert ( int key );  // change return type to bool
+    int printBalance () ;
+    static void printAVL ();
+    void printStats ();
 
-    static Node *insert(Node *node, int key);
+    void setAVL ( bool avl ) { this->avl = avl; }
+    bool isAVL () const { return avl; }
 
-    static bool isAVL(Node *node);
+    static Tree fromFile ( const std::filesystem::path& path );
 
-    static int height(Node *node);
+  private:
+    std::unique_ptr<Node> root;
+    std::size_t size = 0;
+    bool avl = true;
 
-    static int balanceFactor(Node *node);
-//die brauchen wir nicht
-    static Node *rotateLeft(Node *node);
-    static Node *rotateRight(Node *node);
-    static Node *rotateLeftRight(Node *node);
-    static Node *rotateRightLeft(Node *node);
+    bool insert_ ( std::unique_ptr<Node> &node, int key );
+    int printBalance_ ( const Node *node );
 
-    int getMin(Node *node);
+    static int height ( std::unique_ptr<Node> &node );
 
-    int getMax(Node *node);
-
-    static void getStats(Node *node, int &count, int &sum);
+    static int balanceFactor ( std::unique_ptr<Node> &node );
+    static std::string_view trim ( std::string_view sv );
+    static int parseInt (   std::string_view sv,
+                            const std::filesystem::path& path,
+                            std::size_t lineNr
+                        );
 };
-
-#endif
