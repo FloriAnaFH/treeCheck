@@ -5,14 +5,14 @@
 
 int main (int argc, char* argv[]){
      if (argc < 2) {
-        std::cout << "Usage: treecheck <filename>" << std::endl;
+        std::cerr << "Usage: treecheck <filename>" << std::endl;
         return 1;
     }
     
     std::ifstream file(argv[1]);
 
     if (!file.is_open()) {
-        std::cout << "Error: could not open file " << argv[1] << std::endl;
+        std::cerr << "Error: could not open file " << argv[1] << std::endl;
         return 1;
     }
     Tree tree;
@@ -24,7 +24,8 @@ int main (int argc, char* argv[]){
 
     file.close();
 
-
+    tree.printBalance();
+    tree.printStats();
 
     return 0;
 }
