@@ -6,35 +6,35 @@
 
 int main ( int argc, char* argv [] ) {
     try {
-        bool rebalance = false;
-        bool animate   = false;
-        int  argStart  = 1;   // index of the first non-flag argument
+        bool rebalance    = false;
+        bool animate      = false;
+        int  firstFileArg = 1;   // index of the first non-flag argument
 
-        while ( argStart < argc ) {
-            std::string_view arg = argv[argStart];
-            if      ( arg == "--rebalance" ) { rebalance = true; ++argStart; }
-            else if ( arg == "--animate"   ) { animate   = true; ++argStart; }
+        while ( firstFileArg < argc ) {
+            std::string_view currentArg = argv[firstFileArg];
+            if      ( currentArg == "--rebalance" ) { rebalance = true; ++firstFileArg; }
+            else if ( currentArg == "--animate"   ) { animate   = true; ++firstFileArg; }
             else break;
         }
 
-        const int nfiles = argc - argStart;
+        const int fileCount = argc - firstFileArg;
 
         if ( animate ) {
-            if ( nfiles != 1 ) {
+            if ( fileCount != 1 ) {
                 std::cerr << "Usage: treecheck [--rebalance] --animate <file>\n";
                 return 1;
             }
-            animateMode( argv[argStart], rebalance );
+            animateMode( argv[firstFileArg], rebalance );
             return 0;
         }
 
-        switch ( nfiles ) {
+        switch ( fileCount ) {
             case 1: {
-                analysisMode( argv[argStart], rebalance );
+                analysisMode( argv[firstFileArg], rebalance );
                 return 0;
             }
             case 2: {
-                searchMode( argv[argStart], argv[argStart + 1], rebalance );
+                searchMode( argv[firstFileArg], argv[firstFileArg + 1], rebalance );
                 return 0;
             }
             default: {

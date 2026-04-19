@@ -19,8 +19,8 @@ bool Tree::printBalance() const {
     return printBalance_(root.get());
 }
 
-void Tree::setRebalance(bool r) {
-    rebalance_ = r;
+void Tree::setRebalance(bool enabled) {
+    rebalance_ = enabled;
 }
 
 std::vector<int> Tree::readKeys(const std::filesystem::path& path) {
@@ -182,9 +182,9 @@ int Tree::height(const std::unique_ptr<Node>& node) {
 }
 
 void Tree::updateHeight(const std::unique_ptr<Node>& node) {
-    const int l = height(node->left);
-    const int r = height(node->right);
-    node->height_ = (l > r ? l : r) + 1;
+    const int leftHeight  = height(node->left);
+    const int rightHeight = height(node->right);
+    node->height_ = (leftHeight > rightHeight ? leftHeight : rightHeight) + 1;
 }
 
 int Tree::balanceFactor(const std::unique_ptr<Node>& node) {
@@ -204,22 +204,22 @@ int Tree::balanceFactor(const std::unique_ptr<Node>& node) {
  *  rotateRight – fixes a Left-Left imbalance (mirror image).
  */
 
-std::unique_ptr<Node> Tree::rotateLeft(std::unique_ptr<Node> x) {
-    std::unique_ptr<Node> y = std::move(x->right);
-    x->right = std::move(y->left);
-    updateHeight(x);
-    y->left = std::move(x);
-    updateHeight(y);
-    return y;
+std::unique_ptr<Node> Tree::rotateLeft(std::unique_ptr<Node> oldRoot) {
+    std::unique_ptr<Node> newRoot = std::move(oldRoot->right);
+    oldRoot->right = std::move(newRoot->left);
+    updateHeight(oldRoot);
+    newRoot->left = std::move(oldRoot);
+    updateHeight(newRoot);
+    return newRoot;
 }
 
-std::unique_ptr<Node> Tree::rotateRight(std::unique_ptr<Node> y) {
-    std::unique_ptr<Node> x = std::move(y->left);
-    y->left = std::move(x->right);
-    updateHeight(y);
-    x->right = std::move(y);
-    updateHeight(x);
-    return x;
+std::unique_ptr<Node> Tree::rotateRight(std::unique_ptr<Node> oldRoot) {
+    std::unique_ptr<Node> newRoot = std::move(oldRoot->left);
+    oldRoot->left = std::move(newRoot->right);
+    updateHeight(oldRoot);
+    newRoot->right = std::move(oldRoot);
+    updateHeight(newRoot);
+    return newRoot;
 }
 
 /* ── Rebalance ──────────────────────────────────────────────────────────────
@@ -252,13 +252,13 @@ void Tree::rebalance(std::unique_ptr<Node>& node) {
 /* search methods */
 
 bool Tree::searchPath(const std::unique_ptr<Node>& node, int key, std::vector<int>& path) const {
-    const Node* node_ = node.get();
-    while (node_) {
-        path.push_back(node_->key_);
-        if (key == node_->key_) {
+    const Node* current = node.get();
+    while (current) {
+        path.push_back(current->key_);
+        if (key == current->key_) {
             return true;
         }
-        node_ = (key < node_->key_) ? node_->left.get() : node_->right.get();
+        current = (key < current->key_) ? current->left.get() : current->right.get();
     }
     return false;
 }

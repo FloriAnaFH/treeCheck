@@ -30,139 +30,153 @@ const std::string C_BR   = "\xe2\x94\x98";   // U+2518  ┘
 const std::string C_T_UP = "\xe2\x94\xb4";   // U+2534  ┴
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
+//
+// A 2-D grid where every cell holds exactly one terminal-display-column:
+// either a plain ASCII character or a multi-byte UTF-8 box-drawing sequence.
+// A parallel colour grid drives ANSI escape emission during printing.
 
 struct Canvas {
-    int nr, nc;
-    std::vector<std::vector<std::string>> g;   // glyph per cell
-    std::vector<std::vector<int>>         k;   // colour index per cell (0–4)
+    int numRows;
+    int numCols;
+    std::vector<std::vector<std::string>> glyphs;    // display glyph per cell
+    std::vector<std::vector<int>>         colours;   // colour index per cell (0–4)
 
     Canvas(int rows, int cols)
-        : nr(rows), nc(cols),
-          g(rows, std::vector<std::string>(cols, " ")),
-          k(rows, std::vector<int>(cols, 0))
+        : numRows(rows), numCols(cols)
+        , glyphs (rows, std::vector<std::string>(cols, " "))
+        , colours(rows, std::vector<int>        (cols, 0  ))
     {}
 
-    void set(int r, int c, const std::string& glyph, int col = 0) {
-        if (r < 0 || r >= nr || c < 0 || c >= nc) return;
-        g[r][c] = glyph;
-        k[r][c] = col;
+    void set(int row, int col, const std::string& glyph, int colourIdx = 0) {
+        if (row < 0 || row >= numRows || col < 0 || col >= numCols) return;
+        glyphs [row][col] = glyph;
+        colours[row][col] = colourIdx;
     }
 
-    void hline(int r, int c0, int c1, const std::string& glyph, int col) {
-        for (int c = c0; c <= c1; ++c) {
-            set(r, c, glyph, col);
+    void hline(int row, int startCol, int endCol,
+               const std::string& glyph, int colourIdx) {
+        for (int col = startCol; col <= endCol; ++col) {
+            set(row, col, glyph, colourIdx);
         }
     }
 
     void print() const {
-        for (int r = 0; r < nr; ++r) {
-            int curCol = -1;
-            for (int c = 0; c < nc; ++c) {
-                int idx = k[r][c];
-                if (idx != curCol) {
-                    switch (idx) {
-                        case 0:  std::cout << RESET;  break;
+        for (int row = 0; row < numRows; ++row) {
+            int activeColour = -1;
+            for (int col = 0; col < numCols; ++col) {
+                const int cellColour = colours[row][col];
+                if (cellColour != activeColour) {
+                    switch (cellColour) {
                         case 1:  std::cout << GREEN;  break;
                         case 2:  std::cout << YELLOW; break;
                         case 3:  std::cout << CYAN;   break;
                         case 4:  std::cout << RED;    break;
                         default: std::cout << RESET;  break;
                     }
-                    curCol = idx;
+                    activeColour = cellColour;
                 }
-                std::cout << g[r][c];
+                std::cout << glyphs[row][col];
             }
             std::cout << RESET << '\n';
         }
     }
 };
 
-// ── Pos ───────────────────────────────────────────────────────────────────────
+// ── NodePos ───────────────────────────────────────────────────────────────────
 
-struct Pos { int rank, depth; };
+struct NodePos {
+    int rank;    // in-order rank  → horizontal canvas column
+    int depth;   // distance from root → vertical canvas row
+};
 
-// ── gatherPos ─────────────────────────────────────────────────────────────────
+// ── gatherPositions ───────────────────────────────────────────────────────────
+//
+// In-order traversal: assigns every node a monotonically increasing rank
+// (left-to-right sorted position) and records its depth.
 
-void gatherPos(const Node* n, int depth, int& rank,
-               std::unordered_map<const Node*, Pos>& out)
+void gatherPositions(const Node* node, int depth, int& rank,
+                     std::unordered_map<const Node*, NodePos>& positions)
 {
-    if (!n) return;
-    gatherPos(n->left.get(),  depth + 1, rank, out);
-    out[n] = { rank++, depth };
-    gatherPos(n->right.get(), depth + 1, rank, out);
+    if (!node) return;
+    gatherPositions(node->left.get(),  depth + 1, rank, positions);
+    positions[node] = { rank++, depth };
+    gatherPositions(node->right.get(), depth + 1, rank, positions);
 }
 
-// ── bfOf ─────────────────────────────────────────────────────────────────────
+// ── balanceFactorOf ───────────────────────────────────────────────────────────
+//
+// Computes height(right) – height(left) directly from the cached height_
+// fields on the children.  O(1) — no traversal needed.
 
-int bfOf(const Node* n) {
-    int l = n->left  ? n->left->height_  : -1;
-    int r = n->right ? n->right->height_ : -1;
-    return r - l;
+int balanceFactorOf(const Node* node)
+{
+    const int leftHeight  = node->left  ? node->left->height_  : -1;
+    const int rightHeight = node->right ? node->right->height_ : -1;
+    return rightHeight - leftHeight;
 }
 
 // ── renderNode ────────────────────────────────────────────────────────────────
 
-void renderNode(Canvas& cv, const Node* n,
-                const std::unordered_map<const Node*, Pos>& pos,
-                int cellW, int rowH, int newKey)
+void renderNode(Canvas& canvas, const Node* node,
+                const std::unordered_map<const Node*, NodePos>& positions,
+                int cellWidth, int rowHeight, int newKey)
 {
-    if (!n) return;
+    if (!node) return;
 
-    const Pos& p   = pos.at(n);
-    int nodeCol    = p.rank * cellW + cellW / 2;
-    int nodeRow    = p.depth * rowH;
+    const NodePos& nodePos = positions.at(node);
+    const int      nodeCol = nodePos.rank  * cellWidth + cellWidth / 2;
+    const int      nodeRow = nodePos.depth * rowHeight;
 
-    // Colour selection (priority order)
-    int colour;
-    if (std::abs(bfOf(n)) > 1) {
-        colour = 4;                        // RED — AVL violation
-    } else if (n->key_ == newKey) {
-        colour = 2;                        // YELLOW — just inserted
+    // ── Colour selection (violation > just-inserted > balanced) ──────────────
+    int colourIdx;
+    if (std::abs(balanceFactorOf(node)) > 1) {
+        colourIdx = 4;   // RED    — AVL violation
+    } else if (node->key_ == newKey) {
+        colourIdx = 2;   // YELLOW — just inserted this frame
     } else {
-        colour = 1;                        // GREEN — existing balanced
+        colourIdx = 1;   // GREEN  — existing, balanced
     }
 
-    // Write key label centred on nodeCol
-    std::string label    = std::to_string(n->key_);
-    int         lblW     = static_cast<int>(label.size());
-    int         lblStart = nodeCol - lblW / 2;
-    for (int i = 0; i < lblW; ++i) {
-        cv.set(nodeRow, lblStart + i, std::string(1, label[static_cast<std::size_t>(i)]), colour);
+    // ── Key label, centred on nodeCol ─────────────────────────────────────────
+    const std::string label      = std::to_string(node->key_);
+    const int         labelWidth = static_cast<int>(label.size());
+    const int         labelStart = nodeCol - labelWidth / 2;
+    for (int i = 0; i < labelWidth; ++i) {
+        canvas.set(nodeRow, labelStart + i,
+                   std::string(1, label[static_cast<std::size_t>(i)]),
+                   colourIdx);
     }
 
-    if (!n->left && !n->right) return;
+    const Node* leftChild  = node->left.get();
+    const Node* rightChild = node->right.get();
+    if (!leftChild && !rightChild) return;
 
-    int connRow = nodeRow + 1;
+    // ── Box-drawing connector on the row between this node and its children ───
+    const int connectorRow  = nodeRow + 1;
+    const int leftChildCol  = leftChild
+        ? positions.at(leftChild).rank  * cellWidth + cellWidth / 2 : nodeCol;
+    const int rightChildCol = rightChild
+        ? positions.at(rightChild).rank * cellWidth + cellWidth / 2 : nodeCol;
 
-    const Node* lc = n->left.get();
-    const Node* rc = n->right.get();
+    // Junction glyph directly below the parent
+    if      (leftChild && rightChild) canvas.set(connectorRow, nodeCol, C_T_UP, 3);
+    else if (leftChild)               canvas.set(connectorRow, nodeCol, C_BR,   3);
+    else                              canvas.set(connectorRow, nodeCol, C_BL,   3);
 
-    int lCol = lc ? pos.at(lc).rank * cellW + cellW / 2 : nodeCol;
-    int rCol = rc ? pos.at(rc).rank * cellW + cellW / 2 : nodeCol;
-
-    // Junction glyph at the parent column
-    if (lc && rc) {
-        cv.set(connRow, nodeCol, C_T_UP, 3);
-    } else if (lc) {
-        cv.set(connRow, nodeCol, C_BR, 3);
-    } else {
-        cv.set(connRow, nodeCol, C_BL, 3);
+    // Left branch: ┌────
+    if (leftChild) {
+        canvas.set  (connectorRow, leftChildCol,     C_TL,   3);
+        canvas.hline(connectorRow, leftChildCol + 1, nodeCol - 1, H_LINE, 3);
     }
 
-    // Left branch
-    if (lc) {
-        cv.set(connRow, lCol, C_TL, 3);
-        cv.hline(connRow, lCol + 1, nodeCol - 1, H_LINE, 3);
+    // Right branch: ────┐
+    if (rightChild) {
+        canvas.hline(connectorRow, nodeCol + 1, rightChildCol - 1, H_LINE, 3);
+        canvas.set  (connectorRow, rightChildCol, C_TR, 3);
     }
 
-    // Right branch
-    if (rc) {
-        cv.hline(connRow, nodeCol + 1, rCol - 1, H_LINE, 3);
-        cv.set(connRow, rCol, C_TR, 3);
-    }
-
-    renderNode(cv, lc, pos, cellW, rowH, newKey);
-    renderNode(cv, rc, pos, cellW, rowH, newKey);
+    renderNode(canvas, leftChild,  positions, cellWidth, rowHeight, newKey);
+    renderNode(canvas, rightChild, positions, cellWidth, rowHeight, newKey);
 }
 
 } // anonymous namespace
@@ -171,8 +185,7 @@ void renderNode(Canvas& cv, const Node* n,
 
 void drawTree(const Tree& tree, int newKey, const std::string& header)
 {
-    // Clear terminal
-    std::cout << "\033[2J\033[H";
+    std::cout << "\033[2J\033[H";   // clear terminal, cursor to top-left
 
     if (!header.empty()) {
         std::cout << BOLD << header << RESET << "\n\n";
@@ -185,27 +198,28 @@ void drawTree(const Tree& tree, int newKey, const std::string& header)
         return;
     }
 
-    std::unordered_map<const Node*, Pos> posMap;
-    int rankCounter = 0;
-    gatherPos(root, 0, rankCounter, posMap);
+    // Build per-node layout (rank + depth)
+    std::unordered_map<const Node*, NodePos> positions;
+    int nodeCount = 0;
+    gatherPositions(root, 0, nodeCount, positions);
 
-    int maxDepth = 0;
-    int maxLblW  = 0;
-    for (const auto& [node, p] : posMap) {
-        if (p.depth > maxDepth) maxDepth = p.depth;
-        int lblW = static_cast<int>(std::to_string(node->key_).size());
-        if (lblW > maxLblW) maxLblW = lblW;
+    // Canvas dimensions
+    int maxDepth      = 0;
+    int maxLabelWidth = 0;
+    for (const auto& [nodePtr, nodePos] : positions) {
+        maxDepth      = std::max(maxDepth,      nodePos.depth);
+        maxLabelWidth = std::max(maxLabelWidth,
+                                 static_cast<int>(std::to_string(nodePtr->key_).size()));
     }
 
-    int n     = rankCounter;
-    int cellW = maxLblW + 2;
-    int rowH  = 2;
-    int ncols = n * cellW + 2;
-    int nrows = maxDepth * rowH + 1;
+    const int cellWidth  = maxLabelWidth + 2;        // label + 1-col padding each side
+    const int rowHeight  = 2;                         // node row + connector row
+    const int canvasCols = nodeCount * cellWidth + 2; // small right margin
+    const int canvasRows = maxDepth  * rowHeight + 1;
 
-    Canvas cv(nrows, ncols);
-    renderNode(cv, root, posMap, cellW, rowH, newKey);
-    cv.print();
+    Canvas canvas(canvasRows, canvasCols);
+    renderNode(canvas, root, positions, cellWidth, rowHeight, newKey);
+    canvas.print();
 
     // Colour legend
     std::cout << '\n'
@@ -223,7 +237,7 @@ void drawTree(const Tree& tree, int newKey, const std::string& header)
 
 void animateMode(const std::filesystem::path& file, bool rebalance)
 {
-    auto keys = Tree::readKeys(file);
+    const auto keys = Tree::readKeys(file);
     if (keys.empty()) {
         throw std::runtime_error("File contains no keys: " + file.string());
     }
@@ -231,38 +245,38 @@ void animateMode(const std::filesystem::path& file, bool rebalance)
     Tree tree;
     tree.setRebalance(rebalance);
 
-    int        inserted = 0;
-    const int  total    = static_cast<int>(keys.size());
-    const auto delay    = std::chrono::milliseconds(400);
+    int        inserted   = 0;
+    const int  totalKeys  = static_cast<int>(keys.size());
+    const auto frameDelay = std::chrono::milliseconds(400);
 
-    const std::string mode = rebalance
+    const std::string modeLabel = rebalance
         ? "AVL ON"
         : "AVL OFF  (violations in red)";
 
-    for (int key : keys) {
+    for (const int key : keys) {
         if (tree.insert(key)) {
             ++inserted;
-            std::string header =
+            const std::string header =
                 "  Inserting " + std::to_string(key) +
                 "  (" + std::to_string(inserted) +
-                " of " + std::to_string(total) +
-                " total keys)  [" + mode + "]";
+                " of " + std::to_string(totalKeys) +
+                " total keys)  [" + modeLabel + "]";
             drawTree(tree, key, header);
-            std::this_thread::sleep_for(delay);
+            std::this_thread::sleep_for(frameDelay);
         }
     }
 
     drawTree(tree, -1,
         "  Done \xe2\x80\x94 " + std::to_string(tree.size()) +
-        " unique keys  [" + mode + "]");
+        " unique keys  [" + modeLabel + "]");
 
     std::cout << '\n';
 
-    bool avl = tree.printBalance();
-    tree.setAVL(avl);
+    const bool isAvl = tree.printBalance();
+    tree.setAVL(isAvl);
     tree.printAVL();
 
-    Stats s;
-    s.getStats(tree.getRoot());
-    s.printStats();
+    Stats stats;
+    stats.getStats(tree.getRoot());
+    stats.printStats();
 }

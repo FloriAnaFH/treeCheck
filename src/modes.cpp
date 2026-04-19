@@ -27,12 +27,12 @@ void searchMode ( const std::filesystem::path& mainFile,
     const Tree mainTree = Tree::fromFile ( mainFile, rebalance );
     const Tree queryTree = Tree::fromFile ( queryFile, rebalance );
 
-    auto keys = [] (const std::vector <int>& keys ) -> std::string {
-                    if ( keys.empty() ) return "";
+    auto formatPath = [] (const std::vector <int>& pathKeys ) -> std::string {
+                    if ( pathKeys.empty() ) return "";
                     std::ostringstream out;
-                    std::copy ( keys.begin(), keys.end () -1,
+                    std::copy ( pathKeys.begin(), pathKeys.end () -1,
                         std::ostream_iterator <int> ( out, ", ") );
-                    out << keys.back();
+                    out << pathKeys.back();
                     return out.str ();
                 };
 
@@ -45,7 +45,7 @@ void searchMode ( const std::filesystem::path& mainFile,
         std::vector <int> path;
 
         if ( mainTree.searchPath ( mainTree.getRoot(), key, path )) {
-            std::cout << key << " found " << keys ( path ) << "\n";
+            std::cout << key << " found " << formatPath ( path ) << "\n";
         } else {
             std::cout << key << " not found!\n";
         }
