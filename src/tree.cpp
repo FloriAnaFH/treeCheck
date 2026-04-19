@@ -19,8 +19,13 @@ bool Tree::printBalance() const {
     return printBalance_(root.get());
 }
 
-Tree Tree::fromFile(const std::filesystem::path& path) {
+void Tree::setRebalance(bool r) {
+    rebalance_ = r;
+}
+
+Tree Tree::fromFile(const std::filesystem::path& path, bool rebalance) {
     Tree tree;
+    tree.setRebalance(rebalance);
 
     std::ifstream input(path);
     if (!input) {
@@ -73,20 +78,29 @@ std::optional<int> Tree::singleKey() const noexcept {
 
 bool Tree::insert_(std::unique_ptr<Node>& node, int key) {
     /* insert a key into the search tree - check for and ignore duplicate keys.
-       Complexity: avg: O(log n), worst: O(n) */
+       height_ is always kept up to date so printBalance_ has O(1) lookups.
+       Rotations are only applied when rebalance_ is true.
+       Complexity: O(log n) */
     if (!node) {
         node = std::make_unique<Node>(key);
         grow();
         return true;
     }
 
+    bool inserted = false;
     if (key < node->key_) {
-        return insert_(node->left, key);
+        inserted = insert_(node->left, key);
+    } else if (key > node->key_) {
+        inserted = insert_(node->right, key);
+    } else {
+        return false; // key already exists
     }
-    if (key > node->key_) {
-        return insert_(node->right, key);
+
+    if (inserted) {
+        updateHeight(node);
+        if (rebalance_) rebalance(node);
     }
-    return false; // key already exists
+    return inserted;
 }
 
 std::string_view Tree::trim(std::string_view sv) {
@@ -143,18 +157,76 @@ bool Tree::printBalance_(const Node* node) const {
 }
 
 int Tree::height(const std::unique_ptr<Node>& node) {
-    if (!node) {
-        return -1;
-    }
+    /* O(1) – reads the value cached in the node by updateHeight */
+    return node ? node->height_ : -1;
+}
 
-    int leftHeight = height(node->left);
-    int rightHeight = height(node->right);
-
-    return (leftHeight > rightHeight ? leftHeight : rightHeight) + 1;
+void Tree::updateHeight(const std::unique_ptr<Node>& node) {
+    const int l = height(node->left);
+    const int r = height(node->right);
+    node->height_ = (l > r ? l : r) + 1;
 }
 
 int Tree::balanceFactor(const std::unique_ptr<Node>& node) {
     return height(node->right) - height(node->left);
+}
+
+/* ── Rotations ──────────────────────────────────────────────────────────────
+ *
+ *  rotateLeft  – fixes a Right-Right imbalance:
+ *
+ *      x                y
+ *       \      →       / \
+ *        y            x   B
+ *       / \            \
+ *      A   B            A
+ *
+ *  rotateRight – fixes a Left-Left imbalance (mirror image).
+ */
+
+std::unique_ptr<Node> Tree::rotateLeft(std::unique_ptr<Node> x) {
+    std::unique_ptr<Node> y = std::move(x->right);
+    x->right = std::move(y->left);
+    updateHeight(x);
+    y->left = std::move(x);
+    updateHeight(y);
+    return y;
+}
+
+std::unique_ptr<Node> Tree::rotateRight(std::unique_ptr<Node> y) {
+    std::unique_ptr<Node> x = std::move(y->left);
+    y->left = std::move(x->right);
+    updateHeight(y);
+    x->right = std::move(y);
+    updateHeight(x);
+    return x;
+}
+
+/* ── Rebalance ──────────────────────────────────────────────────────────────
+ *
+ *  Four cases (bf = height(right) – height(left)):
+ *
+ *  bf < -1  →  Left-heavy
+ *    bf(left) <= 0  →  Left-Left  : single right rotation
+ *    bf(left)  > 0  →  Left-Right : left rotation on child, then right
+ *
+ *  bf >  1  →  Right-heavy
+ *    bf(right) >= 0  →  Right-Right : single left rotation
+ *    bf(right)  < 0  →  Right-Left  : right rotation on child, then left
+ */
+
+void Tree::rebalance(std::unique_ptr<Node>& node) {
+    const int bf = balanceFactor(node);
+
+    if (bf < -1) {
+        if (balanceFactor(node->left) > 0)
+            node->left = rotateLeft(std::move(node->left));   // LR → LL
+        node = rotateRight(std::move(node));
+    } else if (bf > 1) {
+        if (balanceFactor(node->right) < 0)
+            node->right = rotateRight(std::move(node->right)); // RL → RR
+        node = rotateLeft(std::move(node));
+    }
 }
 
 /* search methods */

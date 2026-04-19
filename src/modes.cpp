@@ -7,8 +7,8 @@
 #include <iostream>
 #include <iterator>
 
-void analysisMode( const std::filesystem::path &file ) {
-    Tree tree = Tree::fromFile ( file );
+void analysisMode( const std::filesystem::path &file, bool rebalance ) {
+    Tree tree = Tree::fromFile ( file, rebalance );
     if ( !tree.size () )  {
         throw std::runtime_error ( "File contains no keys: " + file.string () );
     }
@@ -23,9 +23,9 @@ void analysisMode( const std::filesystem::path &file ) {
 }
 
 void searchMode ( const std::filesystem::path& mainFile,
-                const std::filesystem::path& queryFile ) {
-    const Tree mainTree = Tree::fromFile ( mainFile );
-    const Tree queryTree = Tree::fromFile ( queryFile );
+                const std::filesystem::path& queryFile, bool rebalance ) {
+    const Tree mainTree = Tree::fromFile ( mainFile, rebalance );
+    const Tree queryTree = Tree::fromFile ( queryFile, rebalance );
 
     auto keys = [] (const std::vector <int>& keys ) -> std::string {
                     if ( keys.empty() ) return "";
