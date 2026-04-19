@@ -93,6 +93,7 @@ struct NodePos {
 //
 // In-order traversal: assigns every node a monotonically increasing rank
 // (left-to-right sorted position) and records its depth.
+// Complexity: O(n) — each node is visited exactly once.
 
 void gatherPositions(const Node* node, int depth, int& rank,
                      std::unordered_map<const Node*, NodePos>& positions)
@@ -116,6 +117,9 @@ int balanceFactorOf(const Node* node)
 }
 
 // ── renderNode ────────────────────────────────────────────────────────────────
+//
+// Complexity: O(1) per call (constant work at each node);
+//             O(n) in total across the full recursive traversal.
 
 void renderNode(Canvas& canvas, const Node* node,
                 const std::unordered_map<const Node*, NodePos>& positions,
@@ -182,6 +186,10 @@ void renderNode(Canvas& canvas, const Node* node,
 } // anonymous namespace
 
 // ── drawTree ──────────────────────────────────────────────────────────────────
+//
+// Complexity: O(n) for tree traversal and layout;
+//             O(n × h) for canvas output where h = tree height
+//             (h = O(log n) with AVL on, h = O(n) with AVL off).
 
 void drawTree(const Tree& tree, int newKey, const std::string& header)
 {
@@ -234,6 +242,10 @@ void drawTree(const Tree& tree, int newKey, const std::string& header)
 }
 
 // ── animateMode ───────────────────────────────────────────────────────────────
+//
+// Complexity: O(n log n) to build the tree (n insertions);
+//             O(n × h) per animation frame, giving O(n² log n) total [AVL on]
+//             or O(n³) total [AVL off], where h = final tree height.
 
 void animateMode(const std::filesystem::path& file, bool rebalance)
 {
