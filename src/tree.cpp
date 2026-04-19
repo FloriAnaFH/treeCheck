@@ -23,6 +23,26 @@ void Tree::setRebalance(bool r) {
     rebalance_ = r;
 }
 
+std::vector<int> Tree::readKeys(const std::filesystem::path& path) {
+    std::ifstream input(path);
+    if (!input) {
+        throw std::runtime_error("Can't open file: " + path.string());
+    }
+
+    std::vector<int> keys;
+    std::string line;
+    std::size_t lineNr = 0;
+
+    while (std::getline(input, line)) {
+        ++lineNr;
+        std::string_view sv = trim(line);
+        if (sv.empty()) continue;
+        keys.push_back(parseInt(sv, path, lineNr));
+    }
+
+    return keys;
+}
+
 Tree Tree::fromFile(const std::filesystem::path& path, bool rebalance) {
     Tree tree;
     tree.setRebalance(rebalance);

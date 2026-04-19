@@ -1,34 +1,55 @@
 #include "include/modes.h"
+#include "include/visualiser.h"
 #include <exception>
 #include <iostream>
 #include <string_view>
 
 int main ( int argc, char* argv [] ) {
     try {
-        const bool rebalance = ( argc >= 2 && std::string_view( argv[1] ) == "--rebalance" );
-        const int  shift     = rebalance ? 1 : 0;   // how many args the flag consumed
+        bool rebalance = false;
+        bool animate   = false;
+        int  argStart  = 1;   // index of the first non-flag argument
 
-        switch ( argc - shift ) {
+        while ( argStart < argc ) {
+            std::string_view arg = argv[argStart];
+            if      ( arg == "--rebalance" ) { rebalance = true; ++argStart; }
+            else if ( arg == "--animate"   ) { animate   = true; ++argStart; }
+            else break;
+        }
+
+        const int nfiles = argc - argStart;
+
+        if ( animate ) {
+            if ( nfiles != 1 ) {
+                std::cerr << "Usage: treecheck [--rebalance] --animate <file>\n";
+                return 1;
+            }
+            animateMode( argv[argStart], rebalance );
+            return 0;
+        }
+
+        switch ( nfiles ) {
+            case 1: {
+                analysisMode( argv[argStart], rebalance );
+                return 0;
+            }
             case 2: {
-                analysisMode( argv[1 + shift], rebalance );
+                searchMode( argv[argStart], argv[argStart + 1], rebalance );
                 return 0;
             }
-            case 3: {
-                searchMode( argv[1 + shift], argv[2 + shift], rebalance );
-                return 0;
+            default: {
+                std::cerr << "Usage:\n"
+                          << "  treecheck <file>                        analyse tree\n"
+                          << "  treecheck --rebalance <file>            analyse with AVL rebalancing\n"
+                          << "  treecheck <main> <query>                search / subtree check\n"
+                          << "  treecheck --rebalance <main> <query>    search with AVL rebalancing\n"
+                          << "  treecheck --animate <file>              animate insertions (plain BST)\n"
+                          << "  treecheck --rebalance --animate <file>  animate insertions (AVL)\n";
+                return 1;
             }
-        default: {
-            std::cerr << "Usage:\n"
-                      << "  treecheck <file>                      analyse tree\n"
-                      << "  treecheck --rebalance <file>          analyse with AVL rebalancing\n"
-                      << "  treecheck <main> <query>              search / subtree check\n"
-                      << "  treecheck --rebalance <main> <query>  search with AVL rebalancing\n";
-            return 1;
         }
-        }
-    } catch ( std::exception &ex ) {
-        std::cerr << "Error: " << ex.what () << "\n";
+    } catch ( std::exception& ex ) {
+        std::cerr << "Error: " << ex.what() << "\n";
         return 1;
     }
-
 }

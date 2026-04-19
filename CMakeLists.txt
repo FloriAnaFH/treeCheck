@@ -10,6 +10,7 @@ add_library(treecheck_lib
     src/tree.cpp
     src/stats.cpp
     src/modes.cpp
+    src/visualiser.cpp
 )
 
 # ── Main executable ───────────────────────────────────────────────────────────

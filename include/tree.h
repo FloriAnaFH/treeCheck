@@ -24,6 +24,7 @@ class Tree {
     std::optional <int> singleKey () const noexcept;
 
     static Tree fromFile ( const std::filesystem::path& path, bool rebalance = false );
+    static std::vector<int> readKeys ( const std::filesystem::path& path );
 
     /*  search methods */
     bool searchPath ( const std::unique_ptr <Node>& node, int key, std::vector <int>& path ) const;
