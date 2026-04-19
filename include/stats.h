@@ -12,7 +12,7 @@ struct Stats {
 
     void add ( int key );
     double average () const;
-    void getStats ( const Node* node );
+    void getStats ( const std::unique_ptr <Node>& node );
     void printStats () const;
 
 };

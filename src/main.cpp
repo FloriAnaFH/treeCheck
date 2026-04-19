@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include "tree.h"
+#include "../include/tree.h"
 
 
 int main (int argc, char* argv[]){
@@ -8,7 +8,7 @@ int main (int argc, char* argv[]){
         std::cerr << "Usage: treecheck <filename>" << std::endl;
         return 1;
     }
-    
+
     std::ifstream file(argv[1]);
 
     if (!file.is_open()) {

@@ -12,12 +12,12 @@ double Stats::average () const {
     return count == 0 ? 0.0 : static_cast <double> ( count );
 }
 
-void Stats::getStats ( const Node* node) {
+void Stats::getStats ( const std::unique_ptr <Node>& node) {
     if ( !node ) return;
 
     add ( node->key_ );
-    getStats ( node->left.get());
-    getStats ( node->right.get());
+    getStats ( node->left);
+    getStats ( node->right);
 }
 
 void Stats::printStats () const {

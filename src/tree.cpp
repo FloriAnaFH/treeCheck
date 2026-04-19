@@ -13,9 +13,7 @@ Node::Node ( int key ) : key_ ( key ), left ( nullptr ), right ( nullptr ) {}
 
 bool Tree::insert ( int key ) { return insert_ ( root, key ); }
 
-int Tree::printBalance ()  {
-    bool avl = true;
-    ;
+bool Tree::printBalance () const {
     return printBalance_ ( root.get() );
 }
 
@@ -37,6 +35,12 @@ static Tree fromFile ( std::filesystem::path& path ) {
     return tree;
 }
 
+void Tree::printAVL() const {
+    std::cout << "AVL: " << ( isAVL()  ? "YES" : "NO" );
+}
+
+void Tree::grow () { ++size_; }
+std::unique_ptr <Node>& Tree::getRoot() { return root; }
 
 /* private functions */
 
@@ -45,7 +49,7 @@ bool Tree::insert_ ( std::unique_ptr<Node> &node, int key ) {
 
     if ( !node ) {
         node = std::make_unique<Node> ( key );
-        ++size;
+        grow();
         return true;
     }
     if ( key < node->key_ ) {
@@ -85,10 +89,10 @@ static int parseInt ( std::string_view sv, const std::filesystem::path& path, st
     return value;
 }
 
-int Tree::printBalance_ ( const Node *node ) {
+bool Tree::printBalance_ ( const Node *node ) const {
     /* compute subtree height and AVL information in one pass to avoid recomputation of subtree heights */
     if ( !node )
-        return 0;
+        return false;
 
     const int rightHeight = printBalance_ ( node->right.get() );
     const int leftHeight = printBalance_ ( node->left.get() );
@@ -97,7 +101,7 @@ int Tree::printBalance_ ( const Node *node ) {
     std::cout << "bal(" << node->key_ << ") = " << bf;
     if ( bf > 1 || bf < -1 ) {
         std::cout << " (AVL violation)";
-        setAVL ( false );
+        return  false;
     }
     std::cout << "\n";
 
