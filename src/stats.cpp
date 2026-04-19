@@ -1,5 +1,6 @@
 #include "../include/stats.h"
 #include <iostream>
+#include <algorithm>
 
 void Stats::add ( int key ) {
     min = std::min ( min, key );
@@ -9,7 +10,7 @@ void Stats::add ( int key ) {
 }
 
 double Stats::average () const {
-    return count == 0 ? 0.0 : static_cast <double> ( count );
+    return count == 0 ? 0.0 : static_cast<double>(sum) / static_cast<double>(count);
 }
 
 void Stats::getStats ( const std::unique_ptr <Node>& node) {
