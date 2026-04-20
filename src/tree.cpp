@@ -206,20 +206,8 @@ int Tree::balanceFactor(const std::unique_ptr<Node>& node) {
     return height(node->right) - height(node->left);
 }
 
-/* ── Rotations ──────────────────────────────────────────────────────────────
- *
- *  rotateLeft  – fixes a Right-Right imbalance:
- *
- *      x                y
- *       \      →       / \
- *        y            x   B
- *       / \            \
- *      A   B            A
- *
- *  rotateRight – fixes a Left-Left imbalance (mirror image).
- *
- *  Complexity: O(1) — pointer rewiring and two updateHeight calls
- */
+/* Perform single AVL rotations for LL/RR imbalance cases.
+   Complexity: O(1) — pointer rewiring plus height updates */
 
 std::unique_ptr<Node> Tree::rotateLeft(std::unique_ptr<Node> oldRoot) {
     std::unique_ptr<Node> newRoot = std::move(oldRoot->right);
@@ -239,20 +227,9 @@ std::unique_ptr<Node> Tree::rotateRight(std::unique_ptr<Node> oldRoot) {
     return newRoot;
 }
 
-/* ── Rebalance ──────────────────────────────────────────────────────────────
- *
- *  Four cases (bf = height(right) – height(left)):
- *
- *  bf < -1  →  Left-heavy
- *    bf(left) <= 0  →  Left-Left  : single right rotation
- *    bf(left)  > 0  →  Left-Right : left rotation on child, then right
- *
- *  bf >  1  →  Right-heavy
- *    bf(right) >= 0  →  Right-Right : single left rotation
- *    bf(right)  < 0  →  Right-Left  : right rotation on child, then left
- *
- *  Complexity: O(1) — at most two rotations, each O(1)
- */
+/* Restore AVL balance at one node using LL/LR/RR/RL cases based on
+   balance factors of node and child.
+   Complexity: O(1) — at most two rotations */
 
 void Tree::rebalance(std::unique_ptr<Node>& node) {
     const int bf = balanceFactor(node);
