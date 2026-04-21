@@ -28,6 +28,7 @@ class Tree {
     bool searchPath ( const std::unique_ptr <Node>& node, int key, std::vector <int>& path ) const;
     bool sameTree ( const std::unique_ptr <Node>& a, const std::unique_ptr <Node>& b ) const;
     bool containsSubtree ( const std::unique_ptr <Node>& main, const std::unique_ptr <Node>& subtree ) const;
+    bool containsSparseSubtree ( const std::unique_ptr<Node> &main, const std::unique_ptr<Node> &sub ) const;
 
   private:
     std::unique_ptr<Node> root;

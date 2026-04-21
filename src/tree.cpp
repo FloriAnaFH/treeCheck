@@ -190,3 +190,22 @@ bool Tree::containsSubtree(const std::unique_ptr<Node>& main,
     return containsSubtree(main->left, subtree) ||
            containsSubtree(main->right, subtree);
 }
+
+bool Tree::containsSparseSubtree ( const std::unique_ptr<Node> &main, const std::unique_ptr<Node> &sub ) const {
+
+    if ( !sub )
+        return true;
+    if ( !main )
+        return false;
+    if ( sameTree ( main, sub ) )
+        return true;
+
+    if ( main->key_ == sub->key_ ) {
+        return containsSparseSubtree ( main->left, sub->left ) && containsSparseSubtree ( main->right, sub->right );
+    }
+    if ( main->key_ > sub->key_ ) {
+        return containsSparseSubtree ( main->left, sub );
+    } else {
+        return containsSparseSubtree ( main->right, sub );
+    }
+}
