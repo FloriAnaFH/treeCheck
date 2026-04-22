@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 
+/* Build a tree from file, print per-node balance factors, AVL status, and stats.
+   Complexity: dominated by file load + insertions + full traversals for reporting */
 void analysisMode ( const std::filesystem::path &file ) {
     Tree tree = Tree::fromFile ( file );
     if ( !tree.size() ) {
@@ -22,10 +24,16 @@ void analysisMode ( const std::filesystem::path &file ) {
     stats.printStats();
 }
 
+/* Compare main/query trees from files:
+   - single-key query -> search path in main tree
+   - multi-key query  -> subtree containment check
+   Complexity: dominated by file load + insertions, then search/subtree check */
 void searchMode ( const std::filesystem::path &mainFile, const std::filesystem::path &queryFile ) {
     const Tree mainTree = Tree::fromFile ( mainFile );
     const Tree queryTree = Tree::fromFile ( queryFile );
 
+    /* Format visited keys as "a, b, c".
+       Complexity: O(k) where k = number of keys in the path */
     auto keys = [] ( const std::vector<int> &keys ) -> std::string {
         if ( keys.empty() )
             return "";

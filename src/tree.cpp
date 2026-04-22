@@ -20,6 +20,10 @@ bool Tree::printBalance() const {
 }
 
 Tree Tree::fromFile(const std::filesystem::path& path) {
+    /* Reads all keys from the file and inserts them into a new tree.
+       Complexity: avg O(n log n),
+                   worst O(n²) [AVL off]
+                   where n = number of unique keys */
     Tree tree;
 
     std::ifstream input(path);
@@ -72,8 +76,9 @@ std::optional<int> Tree::singleKey() const noexcept {
 /* private functions */
 
 bool Tree::insert_(std::unique_ptr<Node>& node, int key) {
-    /* insert a key into the search tree - check for and ignore duplicate keys.
-       Complexity: avg: O(log n), worst: O(n) */
+    /* Insert a key into the search tree; duplicate keys are silently ignored.
+       Complexity: avg O(log n),
+                   worst O(n) */
     if (!node) {
         node = std::make_unique<Node>(key);
         grow();
@@ -90,7 +95,8 @@ bool Tree::insert_(std::unique_ptr<Node>& node, int key) {
 }
 
 std::string_view Tree::trim(std::string_view sv) {
-    /* remove whitespace from both ends */
+    /* Remove leading and trailing whitespace.
+       Complexity: O(k) where k = string length */
     while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) {
         sv.remove_prefix(1);
     }
@@ -104,8 +110,9 @@ std::string_view Tree::trim(std::string_view sv) {
 int Tree::parseInt(std::string_view sv,
                    const std::filesystem::path& path,
                    std::size_t lineNr) {
-    /* tries to parse an integer - throws an error if parsing produces an error
-       or not all characters were read */
+    /* Parse a decimal integer; throw if the input contains non-digit
+       characters or does not consume the entire string.
+       Complexity: O(k) where k = string length */
     int value{};
     const char* begin = sv.data();
     const char* end = begin + sv.size();
@@ -122,6 +129,9 @@ int Tree::parseInt(std::string_view sv,
 }
 
 bool Tree::printBalance_(const Node* node) const {
+    /* Print the balance factor of every node in pre-order and return
+       true iff all balance factors lie in [-1, 1].
+       Complexity: O(n²) — height() traverses each subtree at every node */
     if (!node) {
         return true;
     }
@@ -143,6 +153,7 @@ bool Tree::printBalance_(const Node* node) const {
 }
 
 int Tree::height(const std::unique_ptr<Node>& node) {
+    /* O(n) — recursively traverses the entire subtree */
     if (!node) {
         return -1;
     }
@@ -154,12 +165,16 @@ int Tree::height(const std::unique_ptr<Node>& node) {
 }
 
 int Tree::balanceFactor(const std::unique_ptr<Node>& node) {
+    /* O(n) — two O(n) height traversals */
     return height(node->right) - height(node->left);
 }
 
 /* search methods */
 
 bool Tree::searchPath(const std::unique_ptr<Node>& node, int key, std::vector<int>& path) const {
+    /* Walk from the given node toward the target key, recording every
+       visited key in path (whether or not the key is found).
+       Complexity: avg O(log n), worst O(n) */
     const Node* node_ = node.get();
     while (node_) {
         path.push_back(node_->key_);
@@ -173,6 +188,9 @@ bool Tree::searchPath(const std::unique_ptr<Node>& node, int key, std::vector<in
 
 bool Tree::sameTree(const std::unique_ptr<Node>& a,
                     const std::unique_ptr<Node>& b) const {
+    /* Return true if both trees have identical structure and keys.
+       Complexity: avg O(1) if root keys differ (fails immediately),
+                   worst O(min(|a|, |b|)) for structurally identical trees */
     if (!a && !b) return true;
     if (!a || !b) return false;
 
@@ -183,6 +201,10 @@ bool Tree::sameTree(const std::unique_ptr<Node>& a,
 
 bool Tree::containsSubtree(const std::unique_ptr<Node>& main,
                            const std::unique_ptr<Node>& subtree) const {
+    /* Return true if subtree appears as a structurally identical
+       connected subgraph anywhere within main.
+       Complexity: avg O(n) — sameTree fails fast on key mismatches,
+                   worst O(n × m) where n = |main|, m = |subtree| */
     if (!subtree) return true;
     if (!main) return false;
     if (sameTree(main, subtree)) return true;
